@@ -132,7 +132,6 @@ The schema establishes relationships between customers, products, categories, or
 
 | Table | Description |
 |---------|------------|
-| Customers | Stores customer information and purchase activity. |
 | Products | Contains product details including pricing and category assignments. |
 | Orders | Stores transactional order information. |
 | Returns | Records returned products and return reasons. |
@@ -144,7 +143,6 @@ The schema establishes relationships between customers, products, categories, or
 
 ## Relationship Overview
 
-- One customer can place multiple orders.
 - Each order can contain one or more products.
 - Every product belongs to a category.
 - Orders may generate returns.
