@@ -8,7 +8,7 @@ SQL-based data analytics project that identifies revenue leakage in an online ma
 | **Project Name** | Marketplace Revenue Leakage & Gap Analysis using SQL |
 | **Project Type** | SQL Data Analytics Project |
 | **Industry** | Online Marketplace / E-commerce |
-| **Database** | MySQL |
+| **Database** | PosgresSQL |
 | **Objective** | Identify hidden revenue leakage caused by discounts, returns, logistics costs, payment gateway fees, and product profitability. |
 
 ---
