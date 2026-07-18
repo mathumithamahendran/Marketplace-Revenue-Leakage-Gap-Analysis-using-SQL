@@ -1,0 +1,58 @@
+select * from discounts
+select * from logistics_cost
+select * from orders
+select * from payment_fees
+select * from products
+select * from returns
+
+--Find all orders where selling_price is greater than average selling_price
+select order_id, selling_price from orders 
+where selling_price > (select avg(selling_price) from orders)
+
+--Find all products whose product_id exists in orders table (use IN)
+select product_id from products where product_id in (select product_id from orders)
+--Find all orders where shipping_cost is greater than average shipping_cost (subquery in WHERE)
+select order_id from orders where shipping_cost > (select avg(shipping_cost) from logistics_cost )
+
+
+SELECT * FROM orders o
+WHERE o.order_id IN (
+    SELECT l.order_id 
+    FROM logistics_cost l
+    WHERE l.shipping_cost > (
+        SELECT AVG(shipping_cost) 
+        FROM logistics_cost
+    )
+)
+
+
+select min(selling_price), max(selling_price) from orders
+
+--Label each order as 'High', 'Medium', 'Low' based on selling_price
+select selling_price, 
+case when selling_price <750 then 'low'
+when selling_price between 750 and 1500 then 'medium'
+else 'high' end as label_
+from orders
+
+select distinct(order_status) from orders
+
+--Count how many orders are 'DELIVERED', 'CANCELLED', 'RETURNED' in one single query
+select 
+count(case when order_status = 'Delivered' then 1 end) as Delivered,
+count(case when order_status = 'Cancelled' then 1 end) as Cancelled,
+count(case when order_status = 'Shipped' then 1 end) as Shipped from orders
+
+select min(delivery_days), max(delivery_days) from logistics_cost
+--Label each logistics record as 'Fast', 'Normal', 'Slow' based on delivery_days
+select
+case when delivery_days < 3 then 'fast'
+when delivery_days between 4 and 8 then 'normal'
+else 'slow' end as delivery_label,
+count(*)as total
+from logistics_cost
+group by case when delivery_days < 3 then 'fast'
+when delivery_days between 4 and 8 then 'normal'
+else 'slow' end
+
+

@@ -1,0 +1,212 @@
+--Task 1: Revenue vs Profit Reality
+--What is the total sales revenue, total cost, and total profit of the marketplace across all orders?
+--total sales revenue
+select sum (quantity*selling_price) from orders 
+--total cost
+select sum(o.quantity*p.cost_price) from orders o left join  products p on o.product_id = p.product_id;
+select sum(o.quantity * o.selling_price) as total_revenue,
+sum(o.quantity * p.cost_price) as Total_cost,
+sum(o.quantity * (o.selling_price - p.cost_price))total_porfit
+from orders o left join  products p on o.product_id = p.product_id;
+--total profit 
+select sum(o.quantity * o.selling_price) as total_revenue,
+sum(o.quantity * p.cost_price) as Total_cost,
+(sum(o.quantity * o.selling_price)
+    -sum(o.quantity * p.cost_price)
+    -sum(coalesce(d.discount_amount,0))
+	-sum(case when r.order_id is not null then o.selling_price * o.quantity else 0 end )
+	-sum(coalesce(l.shipping_cost,0) + coalesce (l.reverse_shipping_cost,0))
+	-sum((o.selling_price * o.quantity) * (coalesce(pf.fee_percentage,0) / 100))) as Net_profit
+	from orders o 
+left join products p on o.product_id = p.product_id
+left join  discounts d ON o.order_id = d.order_id
+left join  returns r ON o.order_id = r.order_id
+left join  logistics_cost l ON o.order_id = l.order_id
+left join  payment_fees pf ON o.payment_method = pf.payment_method;
+
+--Task 2: Category-wise Sales & Profit
+--For each product category, what are the total sales, total cost, and total profit?
+select p.category,sum(o.quantity * o.selling_price) as total_revenue,
+sum(o.quantity * p.cost_price) as Total_cost,
+sum(o.quantity * o.selling_price) - sum(o.quantity * p.Cost_price) as total_profit,
+(sum(o.quantity * o.selling_price)
+    -sum(o.quantity * p.cost_price)
+    -sum(coalesce(d.discount_amount,0))
+	-sum(case when r.order_id is not null then o.selling_price * o.quantity else 0 end )
+	-sum(coalesce(l.shipping_cost,0) + coalesce (l.reverse_shipping_cost,0))
+	-sum((o.selling_price * o.quantity) * (coalesce(pf.fee_percentage,0) / 100))) as Net_profit
+	from orders o 
+left join products p on o.product_id = p.product_id
+left join  discounts d ON o.order_id = d.order_id
+left join  returns r ON o.order_id = r.order_id
+left join  logistics_cost l ON o.order_id = l.order_id
+left join  payment_fees pf ON o.payment_method = pf.payment_method
+group by category
+order by total_profit desc
+
+
+--Task 3: Loss-Making Products
+--Which products have generated negative total profit across all orders?
+select p.product_id,sum(o.quantity * o.selling_price) as total_revenue,
+sum(o.quantity * p.cost_price) as Total_cost,
+sum(o.quantity * o.selling_price) - sum(o.quantity * p.Cost_price) as total_profit
+from orders o join products p on o.product_id = p.product_id
+group by p.product_id
+having sum(o.quantity * o.selling_price) - sum(o.quantity * p.Cost_price) <=0
+order by total_profit asc
+
+--Task 4: Discount Usage Overview
+--How many orders received a discount, and what is the total discount amount applied across the marketplace?
+select count(order_id)as total_count, sum(discount_amount) as total_amount from discounts 
+
+--Task 5: Payment Method Popularity
+--How many orders and how much sales value comes from each payment method?
+select payment_method, Count(order_id) as total_count,
+                       sum (selling_price) as Total_sales
+from orders group by payment_method;
+
+--Task 6: Discount vs Profit Gap
+--How does average profit per order differ between discounted orders and non-discounted orders?
+select round (avg (o.quantity *(o.selling_price - p.Cost_price)),2)from orders o
+join products p on p.product_id =o.product_id 
+
+select o.order_id, d.discount_amount ,case when d.discount_amount >0 then 'discounted'
+            else 'non_discounted' end as order_type
+			from discounts d right join orders o on o.order_id = d.order_id;
+
+select case when d.discount_amount >0 then 'discounted'
+            else 'non_discounted' end as order_type,
+			round (avg (o.quantity *(o.selling_price - p.Cost_price)),2)
+from orders o 
+join products p on p.product_id =o.product_id 
+left join discounts d on o.order_id = d.order_id
+group by order_type;
+
+--Task 7: Return Impact on Revenue
+--What is the total revenue and profit lost due to returned orders?	
+select sum(selling_price*quantity) as total_revenue from orders where order_id in (select order_id from returns)
+select sum (o.quantity *(o.selling_price - P.cost_price)) from orders o join products p on o.product_id = p.product_id
+where order_id in (select order_id from returns)
+
+select sum(selling_price*quantity) as total_revenue,
+sum (o.quantity *(o.selling_price - P.cost_price)) as loss_profit
+from orders o join products p on o.product_id = p.product_id
+where order_id in (select order_id from returns);
+
+--Task 8: Return Reason Analysis
+--For each return reason, how many returns occurred and how much revenue was lost?
+select distinct return_reason from returns
+select return_reason, count(return_id) from returns group by return_reason
+
+select r.return_reason, count(r.return_id), 
+sum(o.selling_price*o.quantity) as total_revenue from returns r join orders o on o.order_id = r.order_id 
+group by r.return_reason
+order by total_revenue
+
+--Task 9: Logistics Cost Burden
+--Which orders have logistics cost (shipping + reverse shipping) greater than 20% of order value?
+select l.order_id, l.logistics_id,(o.selling_price * o.Quantity) as order_value,
+(l.reverse_shipping_cost + l.Shipping_cost) as logistics_cost
+from logistics_cost l join orders o on o.order_id = l.order_id
+where (l.reverse_shipping_cost + l.Shipping_cost) > 0.2* (o.selling_price * o.Quantity)
+order by logistics_cost desc
+
+--Task 10: Payment Fee Leakage
+--How much total payment gateway fee is paid for each payment method, and how does it affect net profit?
+select pm.payment_method, sum ((o.selling_price * o.quantity) * (pm.fee_percentage/100)) as total_payment_gateway,
+sum(o.selling_price * o.quantity) as total_revenue,
+sum (o.quantity * (o.selling_price - p.cost_price)) - sum ((o.selling_price * o.quantity) * (pm.fee_percentage/100))
+as net_profit
+from payment_fees pm
+join orders o on pm.payment_method = o.payment_method 
+join products p on p.product_id = o.product_id
+group by pm.payment_method
+order by total_payment_gateway desc
+
+--Task 11: Revenue Leakage Breakdown
+--For each order, calculate how much value is lost due to discounts, returns, logistics 
+--cost, and payment fees, and identify which factor causes the highest leakage overall.
+SELECT 
+sum(d.discount_amount) AS discount_loss,
+sum(CASE 
+    WHEN r.order_id IS NOT NULL 
+    THEN o.selling_price * o.quantity 
+    ELSE 0 
+END) AS return_loss,
+sum(l.shipping_cost + l.reverse_shipping_cost) AS logistics_cost,
+sum((o.selling_price * o.quantity) * (pf.fee_percentage / 100)) AS payment_fee
+FROM orders o
+LEFT JOIN discounts d ON o.order_id = d.order_id
+LEFT JOIN returns r ON o.order_id = r.order_id
+LEFT JOIN logistics_cost l ON o.order_id = l.order_id
+LEFT JOIN payment_fees pf ON o.payment_method = pf.payment_method;
+
+--Task 12: Product Profit Ranking
+--Rank all products based on profit contribution, from highest to lowest.
+select t.*,RANK() OVER (ORDER BY net_profit asc) AS profit_rank
+from(select p.product_id, sum(o.quantity *(o.selling_price - P.cost_price)) as total_revenue,
+sum(coalesce(d.discount_amount,0)) AS discount_loss,
+sum(case when r.order_id is not null then o.selling_price * o.quantity else 0 end )as return_loss,
+sum(coalesce(l.shipping_cost,0) + coalesce(l.reverse_shipping_cost,0)) AS logistics_cost,
+sum((o.selling_price * o.quantity) * (coalesce(pf.fee_percentage,0) / 100)) AS payment_fee,
+(sum(o.quantity *(o.selling_price - P.cost_price))
+    -sum(coalesce(d.discount_amount,0))
+	-sum(case when r.order_id is not null then o.selling_price * o.quantity else 0 end )
+	-sum(coalesce(l.shipping_cost,0) + coalesce (l.reverse_shipping_cost,0))
+	-sum((o.selling_price * o.quantity) * (coalesce(pf.fee_percentage,0) / 100))) as Net_profit
+from orders o 
+join products p on p.product_id = o.product_id
+LEFT JOIN discounts d ON o.order_id = d.order_id
+LEFT JOIN returns r ON o.order_id = r.order_id
+LEFT JOIN logistics_cost l ON o.order_id = l.order_id
+LEFT JOIN payment_fees pf ON o.payment_method = pf.payment_method
+group by p.product_id
+order by net_profit desc)t;
+
+--Task 13: Category Margin Stability
+--Which categories show high variation in profit margins across orders compared to others?
+select p.category,round(stddev((o.selling_price - p.cost_price) * 1.0 / nullif (o.selling_price,0)),2) as Profit_margin
+from orders o join products p on o.product_id = p.product_id group by p.category
+order by Profit_margin desc;
+
+--Task 14: High-Risk Customers
+--Which customers have a return rate significantly higher than the marketplace average?
+select o.customer_id, (Count(r.order_id)/Count(o.order_id)) as return_rate
+from orders o left join returns r on r.order_id = o.order_id
+group by o.customer_id;
+select round((count(r.order_id) ::decimal / count(o.order_id)),2)as marketplace_average
+from orders o left join returns r on r.order_id = o.order_id;
+
+select o.customer_id ,
+(Count(r.return_id)::decimal/Count(o.order_id)) as return_rate
+from orders o left join returns r on r.order_id = o.order_id
+group by o.customer_id
+having (Count(r.return_id)::decimal/Count(o.order_id)) > 
+(select (count(r.return_id) ::decimal / count(o.order_id))as marketplace_average
+from orders o left join returns r on r.order_id = o.order_id)
+order by return_rate desc 
+
+--Task 15: Executive Profitability Summary
+select 
+sum(o.selling_price * o.Quantity) as total_sales,
+sum(o.quantity * p.cost_price) as total_cost,
+sum (o.quantity * (Selling_price - p.Cost_price)) as total_profit,
+sum(d.discount_amount) as total_discounts,
+sum(case when r.order_id is not null then o.selling_price * o.quantity else 0 end) as total_returns_loss,
+sum (l.shipping_cost + l.reverse_shipping_cost) as total_logistics_cost,
+sum ((o.selling_price * o.quantity) * (pf.fee_percentage / 100)) as total_payment_fees,
+(sum(o.selling_price * o.Quantity)
+    -sum(o.quantity *p.cost_price)
+    -sum(coalesce(d.discount_amount,0))
+	-sum(case when r.order_id is not null then o.selling_price * o.quantity else 0 end )
+	-sum(coalesce(l.shipping_cost,0) + coalesce (l.reverse_shipping_cost,0))
+	-sum((o.selling_price * o.quantity) * (coalesce(pf.fee_percentage,0) / 100))) as Net_profit
+from orders o 
+left join products p on o.product_id = p.product_id
+left join  discounts d ON o.order_id = d.order_id
+left join  returns r ON o.order_id = r.order_id
+left join  logistics_cost l ON o.order_id = l.order_id
+left join  payment_fees pf ON o.payment_method = pf.payment_method;
+
+
+

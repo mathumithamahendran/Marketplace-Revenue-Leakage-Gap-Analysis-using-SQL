@@ -1,0 +1,130 @@
+Create table discounts (Discount_Id int,Order_Id int,Discount_Amount int,Discount_Type text,
+Coupon_Code text,Is_Stackable text);
+
+Create table logistics_cost(Logistics_Id int,Order_Id int,Shipping_Cost int,
+Reverse_Shipping_Cost int,Delivery_Days int,Delivery_Status text);
+
+Create table orders (Order_Id int,Order_Date date,Customer_Id int,Product_Id int,Quantity int,
+Selling_Price int,Order_Status text,Payment_Method text,Order_Channel text,Warehouse_Id text);
+
+Create table payment_fees(Payment_Method text,Fee_Percentage float,Settlement_Days int);
+
+Create table products(Product_Id int,Category text,Sub_Category text,Brand text,Supplier_Id text,
+Cost_Price int,Mrp int,Weight_Kg float,Launch_Date date);
+
+Create table returns(Return_Id int,Order_Id int,Return_Flag text,Return_Reason text,
+Return_Initiated_Date date,Refund_Mode text,Refund_Status text,Customer_Fault_Flag text);
+
+select * from discounts
+select * from logistics_cost
+select * from orders
+select * from payment_fees
+select * from products
+select * from returns
+
+--null in DISCOUNTS
+update discounts set discount_type = 'Unknown' where discount_type is null;
+update discounts set Coupon_code = 'Unknown' where Coupon_code is null;
+update discounts set Is_stackable = 'Unknown' where Is_stackable is null;
+select distinct (discount_type) from discounts;
+select * from discounts where Coupon_code is null
+
+--null in logistics_cost
+select Count(*) from logistics_cost where Delivery_status is null
+update logistics_cost set Delivery_status = 'Unknown' where Delivery_status is null;
+select distinct Delivery_status from logistics_cost
+update logistics_cost set Delivery_days = (select avg (delivery_days) from logistics_cost)
+where Delivery_days is null;
+select distinct Delivery_days from logistics_cost
+
+--null in Orders
+select Count(*) from orders where order_channel is null
+update orders set order_channel = 'unknown' where order_channel='INVALID';
+update payment_fees set Settlement_Days = (select AVG (Settlement_Days) from payment_fees) 
+where Settlement_Days is null;
+update orders set Payment_Method = 'unknown' where Payment_Method='INVALID';
+update orders set Order_Channel = 'unknown' where Order_Channel='INVALID';
+
+update products set Category = 'unknown' where Category='INVALID';
+update products set sub_Category = 'unknown' where sub_Category='INVALID';
+update products set Brand = 'unknown' where Brand='INVALID';
+
+update returns set Return_Reason = 'Unknown' where Return_Reason is null;
+update returns set Refund_Mode = 'Unknown' where Refund_Mode is null;
+update returns set Refund_Status = 'Unknown' where Refund_Status is null;
+update returns set Customer_Fault_Flag = 'U' where Customer_Fault_Flag is null;
+
+
+--Quantity = 0 or negative? (invalid)
+select count(quantity) from orders where quantity <=0 
+
+--Selling Price = 0 or negative?(invalid)
+select count(selling_price) from orders where selling_price <= 0
+
+--Cost Price = 0 or negative? (invalid)
+select count(Cost_price) from products where Cost_price <= 0
+
+--Selling Price = 0 or negative?(invalid)
+delete from discounts where order_id in (select order_id from orders where selling_price = 0)
+delete from logistics_cost where order_id in (select order_id from orders where selling_price = 0)
+delete from returns where order_id in (select order_id from orders where selling_price = 0)
+delete from orders where selling_price = 0
+
+--Cost Price = 0 or negative? (invalid)
+select Count (product_id) from products where Cost_price <0
+select product_id from orders where product_id in (select product_id from products where cost_price < 0);
+delete from orders where product_id in (select product_id from products where cost_price < 0);
+delete from products where Cost_price <0;
+
+--Quantity = 0 or negative? (invalid)
+select order_id from orders where Quantity = 0
+select order_id from discounts where order_id in (select order_id from orders where Quantity = 0);
+delete from discounts where order_id in (select order_id from orders where Quantity = 0);
+delete from logistics_cost where order_id in (select order_id from orders where Quantity = 0);
+delete from returns where order_id in (select order_id from orders where Quantity = 0);
+delete from orders where Quantity = 0;
+
+
+update discounts set Coupon_code = initcap(Coupon_code);
+update logistics_cost set delivery_status = initcap(delivery_status);
+update orders set order_status = initcap(order_status),Payment_method = initcap(Payment_method),
+                  order_Channel = initcap(order_Channel);
+update orders set Payment_method = upper(Payment_method) where Payment_method = 'Upi';
+
+--Discount Amount > Selling Price (over-discounted)?(invalid)
+select d.discount_amount, o.selling_price from orders o 
+join discounts d on d.order_id = o.order_id where d.discount_amount >= o.selling_price
+
+delete from logistics_cost where order_id in (SELECT o.order_id
+    FROM orders o
+    JOIN discounts d
+    ON o.order_id = d.order_id
+    WHERE d.discount_amount > o.selling_price)
+
+delete from returns where order_id in (SELECT o.order_id
+    FROM orders o
+    JOIN discounts d
+    ON o.order_id = d.order_id
+    WHERE d.discount_amount > o.selling_price)	
+
+delete from discounts where order_id in (SELECT o.order_id
+    FROM orders o
+    JOIN discounts d
+    ON o.order_id = d.order_id
+    WHERE d.discount_amount > o.selling_price)	
+
+delete from orders where order_id in (SELECT o.order_id
+    FROM orders o
+    JOIN discounts d
+    ON o.order_id = d.order_id
+    WHERE d.discount_amount > o.selling_price)
+
+--discount_amount = 6000
+delete from orders where order_id in (select order_id from discounts where discount_amount = 6000) 
+delete from discounts where discount_amount = 6000
+select * from discounts where discount_amount = 6000 
+
+
+
+
+
